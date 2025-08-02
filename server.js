@@ -18,7 +18,7 @@ const JAILBREAK_REGEX = /<JAILBREAK(=ON)?>/i; // matches to <JAILBREAK> or <JAIL
 
 // Prompts //
 const JAILBREAK = require('./jailbreak.js');
-const NSFWPREFILL = require('./nsfwprefill.js');
+const NSFWPREFILL = require('./nsfwprefills.js');
 const ASSISSTANT_PROMPT = "Okay, I understand. I'm ready to begin the roleplay.";
 const THINKING_REMINDER = "Remember to use <think>...</think> for your reasoning and <response>... for your roleplay content.";
 const THINKING_PROMPT = `You must structure your response using thinking tags:
