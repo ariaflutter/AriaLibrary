@@ -1,5 +1,5 @@
 // Debug flags //
-const DEBUG = true;               // enables debug logging
+const DEBUG = false;               // enables debug logging
 const DEBUG_CONTENT = false;
 
 // Variables //
