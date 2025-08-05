@@ -12,7 +12,7 @@ const DEFAULT_TOP_K = 64;         // determines how many of the most likely next
 const DEFAULT_TOP_P = 0.95;       // cumulative probability for token selection
 
 const ENABLE_NSFW = true;         // enables NSFW prefill
-const ENABLE_THINKING = true;     // enables thinking formatting
+const ENABLE_THINKING = false;     // enables thinking formatting
 const ENABLE_REMINDER = false;    // enables reminder for thinking formatting (should be redundant now)
 const JAILBREAK_REGEX = /<JAILBREAK(=ON)?>/i; // matches to <JAILBREAK> or <JAILBREAK=ON> (case insensitive)
 
