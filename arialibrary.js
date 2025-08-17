@@ -15,12 +15,14 @@ const ENABLE_NSFW = true;         // enables NSFW prefill
 const ENABLE_THINKING = false;     // enables thinking formatting
 const ENABLE_REMINDER = false;    // enables reminder for thinking formatting (should be redundant now)
 const JAILBREAK_REGEX = /<JAILBREAK(=ON)?>/i; // matches to <JAILBREAK> or <JAILBREAK=ON> (case insensitive)
+const STRONG_JAILBREAK_REGEX = /<STRONG(=ON)?>/i; // matches to <STRONG> or <STRONG=ON> (case insensitive)
 
 // Prompts //
 const JAILBREAK = require('./jailbreak.js');
 const NSFWPREFILL = require('./nsfwprefills.js');
 const ASSISSTANT_PROMPT = "Okay, I understand. I'm ready to begin the roleplay.";
 const THINKING_REMINDER = "Remember to use <think>...</think> for your reasoning and <response>... for your roleplay content.";
+const STRONG_JAILBREAK = require('./strongjailbreak.js');
 const THINKING_PROMPT = `You must structure your response using thinking tags:
 
 <think>
@@ -88,7 +90,7 @@ async function routeToGemini(url, requestBody) {
       { headers: { 'Content-Type': 'application/json' }, timeout: DEFAULT_TIMEOUT }
     );
 
-    const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+    const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "No responses for Gemini, Probably You didn't have enough / Stronger Jailbreak, please use your our own jailbreak on the Custom Prompt and delete <STRONG> from your custom prompt";
     return {
       choices: [
         {
@@ -133,6 +135,7 @@ async function streamToGemini(res, url, requestBody, modelName) {
     }
     
     let buffer = '';
+    let sawAnyText = false;
     const textDecoder = new TextDecoder();
     
     const customParserStream = new Transform({
@@ -180,6 +183,7 @@ async function streamToGemini(res, url, requestBody, modelName) {
             const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
             
             if (text) {
+              sawAnyText = true; 
               const formattedChunk = {
                 id: `chatcmpl-${Date.now()}`,
                 object: "chat.completion.chunk",
@@ -204,6 +208,22 @@ async function streamToGemini(res, url, requestBody, modelName) {
       },
       
       flush(callback) {
+        if (!sawAnyText) {
+          // ✅ Fallback: stream "No response." if nothing was emitted
+          const fallbackChunk = {
+            id: `chatcmpl-${Date.now()}`,
+            object: "chat.completion.chunk",
+            created: Math.floor(Date.now() / 1000),
+            model: modelName,
+            choices: [{
+              delta: { content: "No responses for Gemini, Probably You didn't have enough / Stronger Jailbreak, please use your our own jailbreak on the Custom Prompt and delete <STRONG> from your custom prompt" },
+              index: 0,
+              finish_reason: null
+            }]
+          };
+          this.push(`data: ${JSON.stringify(fallbackChunk)}\n\n`);
+        }
+
         const endChunk = {
           id: `chatcmpl-${Date.now()}`,
           object: "chat.completion.chunk",
@@ -272,6 +292,11 @@ app.post('/gemini', async (req, res) => {
     const hasJailbreak = JAILBREAK_REGEX.test(systemPrompt);
     if (hasJailbreak && typeof JAILBREAK === 'string' && JAILBREAK.trim()) {
       systemPrompt = systemPrompt.replace(JAILBREAK_REGEX, JAILBREAK.trim());
+    }
+
+        const hasStrongJailbreak = STRONG_JAILBREAK_REGEX.test(systemPrompt);
+    if (hasStrongJailbreak && typeof STRONG_JAILBREAK === 'string' && STRONG_JAILBREAK.trim()) {
+      systemPrompt = systemPrompt.replace(STRONG_JAILBREAK_REGEX, STRONG_JAILBREAK.trim());
     }
 
     // Prepare messages for Gemini API
