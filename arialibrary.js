@@ -472,19 +472,7 @@ app.post("/botdef", async (req, res) => {
     if (!systemMsgObj?.content) {
       return res.status(400).json({ error: "systemMessage is required" });
     }
-    const systemMessage = systemMsgObj.content;
-
-    // Extract <personality> and optional <scenario>
-    const personalityMatch = systemMessage.match(/<personality>[\s\S]*?(?=<|$)/i);
-    const scenarioMatch = systemMessage.match(/<scenario>[\s\S]*/i);
-
-    const botDef = [personalityMatch?.[0], scenarioMatch?.[0]]
-      .filter(Boolean)
-      .join("\n\n");
-
-    if (!botDef) {
-      return res.status(404).json({ error: "No <personality> or <scenario> block found" });
-    }
+    const botDef = systemMsgObj.content;
 
     // --- STREAMING MODE ---
     if (stream) {
@@ -492,6 +480,7 @@ app.post("/botdef", async (req, res) => {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
+      // Split into small chunks like Gemini/OpenAI
       const chunks = botDef.match(/.{1,40}(\s+|$)/g) || [botDef];
       let i = 0;
 
@@ -565,7 +554,7 @@ app.post("/botdef", async (req, res) => {
           finish_reason: "stop"
         }
       ],
-      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+      usage: { prompt_tokens: 0, completion_tokens: botDef.length, total_tokens: botDef.length }
     });
 
   } catch (err) {
@@ -581,6 +570,7 @@ app.post("/botdef", async (req, res) => {
     });
   }
 });
+
 
 
 app.listen(PORT, () => {
