@@ -465,17 +465,26 @@ app.post('/openrouter', async (req, res) => {
 
 app.post("/botdef", async (req, res) => {
   try {
-    const { systemMessage, stream } = req.body;
-    if (!systemMessage) {
+    const { messages, stream } = req.body;
+
+    // Find the first system message
+    const systemMsgObj = messages?.find(m => m.role === "system");
+    if (!systemMsgObj?.content) {
       return res.status(400).json({ error: "systemMessage is required" });
     }
+    const systemMessage = systemMsgObj.content;
 
-    // Extract <personality> ... <scenario>
-    const match = systemMessage.match(/<personality>[\s\S]*?<scenario>[\s\S]*/i);
-    if (!match) {
-      return res.status(404).json({ error: "No <personality> ... <scenario> block found" });
+    // Extract <personality> and optional <scenario>
+    const personalityMatch = systemMessage.match(/<personality>[\s\S]*?(?=<|$)/i);
+    const scenarioMatch = systemMessage.match(/<scenario>[\s\S]*/i);
+
+    const botDef = [personalityMatch?.[0], scenarioMatch?.[0]]
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (!botDef) {
+      return res.status(404).json({ error: "No <personality> or <scenario> block found" });
     }
-    const botDef = match[0].trim();
 
     // --- STREAMING MODE ---
     if (stream) {
@@ -486,7 +495,7 @@ app.post("/botdef", async (req, res) => {
       const chunks = botDef.match(/.{1,40}(\s+|$)/g) || [botDef];
       let i = 0;
 
-      // First chunk should include the assistant role (just like OpenAI/Gemini)
+      // First chunk = role info
       const firstPayload = {
         id: `chatcmpl-${Date.now()}`,
         object: "chat.completion.chunk",
@@ -504,7 +513,6 @@ app.post("/botdef", async (req, res) => {
 
       const interval = setInterval(() => {
         if (i >= chunks.length) {
-          // End event
           const endPayload = {
             id: `chatcmpl-${Date.now()}`,
             object: "chat.completion.chunk",
