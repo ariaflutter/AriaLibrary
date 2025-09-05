@@ -463,6 +463,118 @@ app.post('/openrouter', async (req, res) => {
   }
 });
 
+app.post("/botdef", async (req, res) => {
+  try {
+    const { systemMessage, stream } = req.body;
+    if (!systemMessage) {
+      return res.status(400).json({ error: "systemMessage is required" });
+    }
+
+    // Extract <personality> ... <scenario>
+    const match = systemMessage.match(/<personality>[\s\S]*?<scenario>[\s\S]*/i);
+    if (!match) {
+      return res.status(404).json({ error: "No <personality> ... <scenario> block found" });
+    }
+    const botDef = match[0].trim();
+
+    // --- STREAMING MODE ---
+    if (stream) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const chunks = botDef.match(/.{1,40}(\s+|$)/g) || [botDef];
+      let i = 0;
+
+      // First chunk should include the assistant role (just like OpenAI/Gemini)
+      const firstPayload = {
+        id: `chatcmpl-${Date.now()}`,
+        object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000),
+        model: "botdef-static",
+        choices: [
+          {
+            delta: { role: "assistant" },
+            index: 0,
+            finish_reason: null
+          }
+        ]
+      };
+      res.write(`data: ${JSON.stringify(firstPayload)}\n\n`);
+
+      const interval = setInterval(() => {
+        if (i >= chunks.length) {
+          // End event
+          const endPayload = {
+            id: `chatcmpl-${Date.now()}`,
+            object: "chat.completion.chunk",
+            created: Math.floor(Date.now() / 1000),
+            model: "botdef-static",
+            choices: [
+              {
+                delta: {},
+                index: 0,
+                finish_reason: "stop"
+              }
+            ]
+          };
+          res.write(`data: ${JSON.stringify(endPayload)}\n\n`);
+          res.write("data: [DONE]\n\n");
+          clearInterval(interval);
+          res.end();
+        } else {
+          const payload = {
+            id: `chatcmpl-${Date.now()}`,
+            object: "chat.completion.chunk",
+            created: Math.floor(Date.now() / 1000),
+            model: "botdef-static",
+            choices: [
+              {
+                delta: { content: chunks[i] },
+                index: 0,
+                finish_reason: null
+              }
+            ]
+          };
+          res.write(`data: ${JSON.stringify(payload)}\n\n`);
+          i++;
+        }
+      }, 50);
+
+      return;
+    }
+
+    // --- NON-STREAMING MODE ---
+    res.status(200).json({
+      id: `botdef-${Date.now()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: "botdef-static",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: botDef },
+          finish_reason: "stop"
+        }
+      ],
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    });
+
+  } catch (err) {
+    console.error("[❌ Server Error on /botdef]", err.message);
+    res.status(500).json({
+      choices: [
+        {
+          message: { role: "assistant", content: `❌ Error: ${err.message}` },
+          finish_reason: "error",
+          index: 0
+        }
+      ]
+    });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`🚀 Proxy server running on PORT ${PORT}`);
 });
