@@ -262,7 +262,7 @@ async function streamToGemini(res, url, requestBody, modelName) {
 }
 
 // Gemini endpoint
-app.post('/gemini', async (req, res) => {
+app.post('/ariagemini', async (req, res) => {
   try {
     const clientBody = req.body;
     const isStreamingRequested = clientBody.stream;
@@ -274,7 +274,7 @@ app.post('/gemini', async (req, res) => {
     }
     
     const modelName = clientBody.model || DEFAULT_GEMINI_MODEL;
-    if (DEBUG) console.log(`🔄 Request received on /gemini. Model: ${modelName}, Streaming: ${isStreamingRequested}`);
+    if (DEBUG) console.log(`🔄 Request received on /ariagemini. Model: ${modelName}, Streaming: ${isStreamingRequested}`);
     const endpoint = isStreamingRequested ? 'streamGenerateContent' : 'generateContent';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:${endpoint}?key=${geminiKey}`;
 
@@ -355,7 +355,7 @@ app.post('/gemini', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('[❌ Server Error on /gemini]', err.response ? err.response.data : err.message);
+    console.error('[❌ Server Error on /ariagemini]', err.response ? err.response.data : err.message);
     const errorMessage = err.response?.data?.error?.message || err.message;
     res.status(500).json({
       choices: [
